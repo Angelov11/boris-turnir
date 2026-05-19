@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Trophy,
   CalendarDays,
@@ -10,131 +10,70 @@ import {
   Swords,
   ListChecks,
   Network,
+  RefreshCcw,
 } from "lucide-react";
 
-const seniorTeams = [
-  "Екипа 1",
-  "Екипа 2",
-  "Екипа 3",
-  "Екипа 4",
-  "Екипа 5",
-  "Екипа 6",
-  "Екипа 7",
-  "Екипа 8",
-];
+const SHEET_ID = import.meta.env.VITE_GOOGLE_SHEET_ID;
+const SHEET_API_BASE = SHEET_ID ? `https://opensheet.elk.sh/${SHEET_ID}` : null;
 
-const juniorTeams = [
-  "Јуниори 2011/2012 - Екипа 1",
-  "Јуниори 2013/2014 - Екипа 1",
-  "Јуниори 2016 - Екипа 1",
-  "Јуниори 2017 - Екипа 1",
-];
+const emptyTeams = [];
+const emptyMatches = [];
+const emptyBracket = [];
 
-const matches = [
-  {
-    id: 1,
-    category: "Сениори",
-    round: "Четвртфинале",
-    teamA: "Екипа 1",
-    teamB: "Екипа 2",
-    date: "27.06.2026",
-    time: "20:00",
-    scoreA: null,
-    scoreB: null,
-  },
-  {
-    id: 2,
-    category: "Сениори",
-    round: "Четвртфинале",
-    teamA: "Екипа 3",
-    teamB: "Екипа 4",
-    date: "27.06.2026",
-    time: "21:00",
-    scoreA: null,
-    scoreB: null,
-  },
-  {
-    id: 3,
-    category: "Сениори",
-    round: "Четвртфинале",
-    teamA: "Екипа 5",
-    teamB: "Екипа 6",
-    date: "28.06.2026",
-    time: "20:00",
-    scoreA: null,
-    scoreB: null,
-  },
-  {
-    id: 4,
-    category: "Сениори",
-    round: "Четвртфинале",
-    teamA: "Екипа 7",
-    teamB: "Екипа 8",
-    date: "28.06.2026",
-    time: "21:00",
-    scoreA: null,
-    scoreB: null,
-  },
-  {
-    id: 5,
-    category: "Сениори",
-    round: "Полуфинале",
-    teamA: "Победник Меч 1",
-    teamB: "Победник Меч 2",
-    date: "По извлекување",
-    time: "—",
-    scoreA: null,
-    scoreB: null,
-  },
-  {
-    id: 6,
-    category: "Сениори",
-    round: "Полуфинале",
-    teamA: "Победник Меч 3",
-    teamB: "Победник Меч 4",
-    date: "По извлекување",
-    time: "—",
-    scoreA: null,
-    scoreB: null,
-  },
-  {
-    id: 7,
-    category: "Сениори",
-    round: "Финале",
-    teamA: "Победник Полуфинале 1",
-    teamB: "Победник Полуфинале 2",
-    date: "По извлекување",
-    time: "—",
-    scoreA: null,
-    scoreB: null,
-  },
-];
+async function fetchSheetTab(tabName) {
+  if (!SHEET_API_BASE) return [];
 
-const bracketRounds = [
-  {
-    title: "Четвртфинале",
-    games: [
-      ["Екипа 1", "Екипа 2"],
-      ["Екипа 3", "Екипа 4"],
-      ["Екипа 5", "Екипа 6"],
-      ["Екипа 7", "Екипа 8"],
-    ],
-  },
-  {
-    title: "Полуфинале",
-    games: [
-      ["Победник Меч 1", "Победник Меч 2"],
-      ["Победник Меч 3", "Победник Меч 4"],
-    ],
-  },
-  {
-    title: "Финале",
-    games: [["Победник Полуфинале 1", "Победник Полуфинале 2"]],
-  },
-];
+const response = await fetch(`${SHEET_API_BASE}/${tabName}`, {
+  cache: "no-store",
+}); 
+
+
+if (!response.ok) {
+    throw new Error(`Cannot load ${tabName}`);
+  }
+
+  const data = await response.json();
+  return Array.isArray(data) ? data : [];
+}
 
 export default function TournamentPage() {
   const [activeTab, setActiveTab] = useState("home");
+  const [teams, setTeams] = useState(emptyTeams);
+  const [matches, setMatches] = useState(emptyMatches);
+  const [bracket, setBracket] = useState(emptyBracket);
+  const [loading, setLoading] = useState(Boolean(SHEET_API_BASE));
+  const [error, setError] = useState("");
+
+  const loadSheetData = async () => {
+    try {
+      setLoading(true);
+      setError("");
+
+      const [teamsData, matchesData, bracketData] = await Promise.all([
+        fetchSheetTab("Teams"),
+        fetchSheetTab("Matches"),
+        fetchSheetTab("Bracket"),
+      ]);
+
+      setTeams(teamsData);
+      setMatches(matchesData);
+      setBracket(bracketData);
+    } catch (err) {
+      console.log(err)
+      setError("Не може да се вчитаат податоците од Google Sheets. Проверете дали Sheet-от е Public / Anyone with the link.");
+      setTeams([]);
+      setMatches([]);
+      setBracket([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    (async () => {
+      await loadSheetData();
+    })();
+  }, []);
 
   const seniorPrizes = [
     { place: "Прво место", amount: "110.000 денари" },
@@ -143,6 +82,9 @@ export default function TournamentPage() {
   ];
 
   const juniorGenerations = ["2011/2012", "2013/2014", "2016", "2017"];
+
+  const seniorTeams = teams.filter(team => team.category?.toLowerCase() === "senior").map(team => team.name);
+  const juniorTeams = teams.filter(team => team.category?.toLowerCase() === "junior").map(team => team.name);
 
   const tabs = useMemo(
     () => [
@@ -157,7 +99,7 @@ export default function TournamentPage() {
   return (
     <main className="min-h-screen bg-gradient-to-br from-green-950 via-green-800 to-lime-500 text-white">
       <nav className="sticky top-0 z-20 border-b border-white/10 bg-green-950/80 px-4 py-3 backdrop-blur md:px-12">
-        <div className="mx-auto flex max-w-6xl gap-2 overflow-x-auto">
+        <div className="mx-auto flex max-w-6xl items-center gap-2 overflow-x-auto">
           {tabs.map(tab => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -176,8 +118,25 @@ export default function TournamentPage() {
               </button>
             );
           })}
+
+          <button
+            onClick={loadSheetData}
+              disabled={loading}
+            className="ml-auto flex shrink-0 items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm font-bold text-white hover:bg-white/20"
+          >
+            <RefreshCcw size={16} className={loading ? "animate-spin" : ""} />
+            Освежи
+          </button>
         </div>
       </nav>
+
+      {(loading || error) && (
+        <div className="px-6 pt-4 md:px-12">
+          <div className={`mx-auto max-w-6xl rounded-2xl px-4 py-3 text-sm font-bold ${error ? "bg-red-500/20 text-red-100" : "bg-white/10 text-green-50"}`}>
+            {loading ? "Се вчитуваат податоци..." : error}
+          </div>
+        </div>
+      )}
 
       {activeTab === "home" && (
         <>
@@ -288,33 +247,36 @@ export default function TournamentPage() {
         </>
       )}
 
-      {activeTab === "teams" && <TeamsSection />}
-      {activeTab === "schedule" && <ScheduleSection />}
-      {activeTab === "bracket" && <BracketSection />}
+      {activeTab === "teams" && <TeamsSection seniorTeams={seniorTeams} juniorTeams={juniorTeams} />}
+      {activeTab === "schedule" && <ScheduleSection matches={matches} />}
+      {activeTab === "bracket" && <BracketSection bracket={bracket} />}
     </main>
   );
 }
 
-function TeamsSection() {
+function TeamsSection({ seniorTeams, juniorTeams }) {
   return (
-    <PageSection title="Екипи" subtitle="Листата може лесно да се менува директно во arrays во кодот.">
+    <PageSection title="Екипи" subtitle="Оваа листа се чита од Google Sheets.">
       <div className="grid gap-6 md:grid-cols-2">
-        <TeamList title="Сениорски екипи" teams={seniorTeams} />
-        <TeamList title="Јуниорски екипи" teams={juniorTeams} />
+        <TeamList title="Сениорски екипи" teams={seniorTeams} emptyText="Сè уште нема внесени сениорски екипи." />
+        <TeamList title="Јуниорски екипи" teams={juniorTeams} emptyText="Сè уште нема внесени јуниорски екипи." />
       </div>
     </PageSection>
   );
 }
 
-function ScheduleSection() {
+function ScheduleSection({ matches }) {
   return (
-    <PageSection title="Распоред на натпревари" subtitle="Датуми, саати и резултати можат да се пополнуваат подоцна.">
+    <PageSection title="Распоред на натпревари" subtitle="Датуми, саати и резултати се читаат од Google Sheets.">
+      {!matches.length ? (
+        <EmptyState text="Сè уште нема внесен распоред на натпревари." />
+      ) : (
       <div className="grid gap-4">
-        {matches.map(match => (
-          <div key={match.id} className="rounded-[1.5rem] border border-white/15 bg-white/10 p-5 shadow-lg backdrop-blur">
+        {matches.map((match, index) => (
+          <div key={match.id || index} className="rounded-[1.5rem] border border-white/15 bg-white/10 p-5 shadow-lg backdrop-blur">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <div className="inline-flex items-center gap-2 rounded-full bg-yellow-300 px-3 py-1 text-sm font-black text-green-950">
-                <Swords size={16} /> Меч {match.id}
+                <Swords size={16} /> Меч {match.id || index + 1}
               </div>
               <p className="text-sm font-bold text-yellow-200">{match.round} • {match.category}</p>
             </div>
@@ -332,64 +294,103 @@ function ScheduleSection() {
           </div>
         ))}
       </div>
+      )}
     </PageSection>
   );
 }
 
-function BracketSection() {
+function BracketSection({ bracket }) {
+  const groupedRounds = bracket.reduce((rounds, game) => {
+    const roundName = game.round || "Рунда";
+    const existingRound = rounds.find(round => round.title === roundName);
+
+    if (existingRound) {
+      existingRound.games.push(game);
+    } else {
+      rounds.push({ title: roundName, games: [game] });
+    }
+
+    return rounds;
+  }, []);
+
   return (
-    <PageSection title="Турнирско дрво" subtitle="Статичко турнирско дрво за 8 екипи. По извлекувањето само ги менуваме имињата.">
-      <div className="overflow-x-auto pb-4">
-        <div className="grid min-w-[900px] grid-cols-3 gap-6">
-          {bracketRounds.map(round => (
-            <div key={round.title} className="rounded-[2rem] border border-white/20 bg-white/10 p-5 shadow-xl backdrop-blur">
-              <h2 className="mb-5 text-xl font-black text-yellow-300">{round.title}</h2>
-              <div className="grid gap-6">
-                {round.games.map((game, index) => (
-                  <div key={`${round.title}-${index}`} className="rounded-2xl bg-white/10 p-4">
-                    <p className="mb-3 text-xs font-bold uppercase text-green-100">Натпревар {index + 1}</p>
-                    <div className="space-y-2">
-                      <div className="rounded-xl bg-white/10 px-4 py-3 font-bold">{game[0]}</div>
-                      <div className="text-center text-sm font-black text-yellow-300">против</div>
-                      <div className="rounded-xl bg-white/10 px-4 py-3 font-bold">{game[1]}</div>
+    <PageSection title="Турнирско дрво" subtitle="Турнирското дрво се чита од Google Sheets. Може да внесеш колку сакаш рунди и натпревари.">
+      {!bracket.length ? (
+        <EmptyState text="Сè уште нема внесено турнирско дрво." />
+      ) : (
+        <div className="overflow-x-auto pb-4">
+          <div
+            className="grid gap-6"
+            style={{
+              minWidth: `${Math.max(groupedRounds.length, 1) * 300}px`,
+              gridTemplateColumns: `repeat(${groupedRounds.length}, minmax(280px, 1fr))`,
+            }}
+          >
+            {groupedRounds.map(round => (
+              <div key={round.title} className="rounded-[2rem] border border-white/20 bg-white/10 p-5 shadow-xl backdrop-blur">
+                <h2 className="mb-5 text-xl font-black text-yellow-300">{round.title}</h2>
+                <div className="grid gap-6">
+                  {round.games.map((game, index) => (
+                    <div key={`${round.title}-${game.game || index}`} className="rounded-2xl bg-white/10 p-4">
+                      <p className="mb-3 text-xs font-bold uppercase text-green-100">Натпревар {game.game || index + 1}</p>
+                      <div className="space-y-2">
+                        <div className="rounded-xl bg-white/10 px-4 py-3 font-bold">{game.teamA}</div>
+                        <div className="text-center text-sm font-black text-yellow-300">против</div>
+                        <div className="rounded-xl bg-white/10 px-4 py-3 font-bold">{game.teamB}</div>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </PageSection>
   );
 }
 
-function TeamList({ title, teams }) {
+function TeamList({ title, teams, emptyText }) {
   return (
     <div className="rounded-[2rem] border border-white/20 bg-white/10 p-6 shadow-xl backdrop-blur">
       <div className="mb-5 flex items-center gap-3">
         <Users className="text-yellow-300" />
         <h2 className="text-2xl font-black">{title}</h2>
       </div>
-      <div className="grid gap-3">
-        {teams.map((team, index) => (
-          <div key={team} className="flex items-center gap-4 rounded-2xl bg-white/10 p-4 font-bold">
-            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-yellow-300 text-green-950">
-              {index + 1}
-            </span>
-            {team}
-          </div>
-        ))}
-      </div>
+
+      {!teams.length ? (
+        <EmptyState text={emptyText} />
+      ) : (
+        <div className="grid gap-3">
+          {teams.map((team, index) => (
+            <div key={`${team}-${index}`} className="flex items-center gap-4 rounded-2xl bg-white/10 p-4 font-bold">
+              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-yellow-300 text-green-950">
+                {index + 1}
+              </span>
+              {team}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function EmptyState({ text }) {
+  return (
+    <div className="rounded-2xl border border-dashed border-white/25 bg-white/5 p-6 text-center font-bold text-green-50">
+      {text}
     </div>
   );
 }
 
 function MatchTeam({ name, score, alignRight }) {
+  const hasScore = score !== undefined && score !== null && String(score).trim() !== "";
+
   return (
     <div className={`rounded-2xl bg-white/10 p-5 ${alignRight ? "text-right" : ""}`}>
       <p className="text-lg font-black">{name}</p>
-      <p className="mt-2 text-sm font-bold text-green-100">Резултат: {score === null ? "—" : score}</p>
+      <p className="mt-2 text-sm font-bold text-green-100">Резултат: {hasScore ? score : "—"}</p>
     </div>
   );
 }
