@@ -13,22 +13,20 @@ import {
   RefreshCcw,
 } from "lucide-react";
 
-const SHEET_ID = import.meta.env.VITE_GOOGLE_SHEET_ID;
-const SHEET_API_BASE = SHEET_ID ? `https://opensheet.elk.sh/${SHEET_ID}` : null;
+const GOOGLE_SCRIPT_URL = import.meta.env.VITE_GOOGLE_SCRIPT_URL;
 
 const emptyTeams = [];
 const emptyMatches = [];
 const emptyBracket = [];
 
 async function fetchSheetTab(tabName) {
-  if (!SHEET_API_BASE) return [];
+  if (!GOOGLE_SCRIPT_URL) return [];
 
-const response = await fetch(`${SHEET_API_BASE}/${tabName}`, {
-  cache: "no-store",
-}); 
+  const response = await fetch(`${GOOGLE_SCRIPT_URL}?sheet=${tabName}&t=${Date.now()}`, {
+    cache: "no-store",
+  });
 
-
-if (!response.ok) {
+  if (!response.ok) {
     throw new Error(`Cannot load ${tabName}`);
   }
 
@@ -41,7 +39,7 @@ export default function TournamentPage() {
   const [teams, setTeams] = useState(emptyTeams);
   const [matches, setMatches] = useState(emptyMatches);
   const [bracket, setBracket] = useState(emptyBracket);
-  const [loading, setLoading] = useState(Boolean(SHEET_API_BASE));
+  const [loading, setLoading] = useState(Boolean(GOOGLE_SCRIPT_URL));
   const [error, setError] = useState("");
 
   const loadSheetData = async () => {
@@ -58,8 +56,8 @@ export default function TournamentPage() {
       setTeams(teamsData);
       setMatches(matchesData);
       setBracket(bracketData);
+    // eslint-disable-next-line no-unused-vars
     } catch (err) {
-      console.log(err)
       setError("Не може да се вчитаат податоците од Google Sheets. Проверете дали Sheet-от е Public / Anyone with the link.");
       setTeams([]);
       setMatches([]);
@@ -74,6 +72,14 @@ export default function TournamentPage() {
       await loadSheetData();
     })();
   }, []);
+  
+  useEffect(() => {
+    (async () => {
+        if (["teams", "schedule", "bracket"].includes(activeTab)) {
+          loadSheetData();
+        }  
+    })();
+  }, [activeTab]);  
 
   const seniorPrizes = [
     { place: "Прво место", amount: "110.000 денари" },
@@ -83,12 +89,18 @@ export default function TournamentPage() {
 
   const juniorGenerations = ["2011/2012", "2013/2014", "2016", "2017"];
 
-  const seniorTeams = teams.filter(team => team.category?.toLowerCase() === "senior").map(team => team.name);
-  const juniorTeams = teams.filter(team => team.category?.toLowerCase() === "junior").map(team => team.name);
+  const approvedTeams = teams.filter(team => {
+    const status = normalizeCell(team.status).toLowerCase();
+    return status === "accepted" || status === "confirmed" || status === "approved";
+  });
+
+  const seniorTeams = approvedTeams.filter(team => team.category?.toLowerCase() === "senior");
+  const juniorTeams = approvedTeams.filter(team => team.category?.toLowerCase() === "junior");
 
   const tabs = useMemo(
     () => [
       { id: "home", label: "Инфо", icon: Trophy },
+      { id: "register", label: "Пријава", icon: Users },
       { id: "teams", label: "Екипи", icon: Users },
       { id: "schedule", label: "Распоред", icon: ListChecks },
       { id: "bracket", label: "Турнирско дрво", icon: Network },
@@ -121,7 +133,6 @@ export default function TournamentPage() {
 
           <button
             onClick={loadSheetData}
-              disabled={loading}
             className="ml-auto flex shrink-0 items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm font-bold text-white hover:bg-white/20"
           >
             <RefreshCcw size={16} className={loading ? "animate-spin" : ""} />
@@ -223,7 +234,7 @@ export default function TournamentPage() {
               <div className="rounded-[2rem] border border-white/20 bg-white/10 p-6 shadow-xl backdrop-blur">
                 <div className="mb-5 flex items-center gap-3">
                   <Trophy className="text-yellow-300" />
-                  <h2 className="text-2xl font-black">Јуниори</h2>
+                  <h2 className="text-2xl font-black">Општински шампион</h2>
                 </div>
 
                 <div className="rounded-2xl bg-yellow-300 p-5 text-green-950">
@@ -247,6 +258,7 @@ export default function TournamentPage() {
         </>
       )}
 
+      {activeTab === "register" && <RegistrationSection onSubmitted={loadSheetData} />}
       {activeTab === "teams" && <TeamsSection seniorTeams={seniorTeams} juniorTeams={juniorTeams} />}
       {activeTab === "schedule" && <ScheduleSection matches={matches} />}
       {activeTab === "bracket" && <BracketSection bracket={bracket} />}
@@ -254,9 +266,115 @@ export default function TournamentPage() {
   );
 }
 
+function RegistrationSection() {
+  const [form, setForm] = useState({
+    category: "senior",
+    name: "",
+    contactName: "",
+    phone: "",
+    logo: "",
+  });
+  const [submitting, setSubmitting] = useState(false);
+  const [message, setMessage] = useState("");
+
+  const updateField = (field, value) => {
+    setForm(prev => ({ ...prev, [field]: value }));
+  };
+
+const submitTeam = async event => {
+  event.preventDefault();
+
+  if (!GOOGLE_SCRIPT_URL) {
+    setMessage("Формата не е конфигурирана. Недостасува Google Script URL.");
+    return;
+  }
+
+  if (!form.name.trim() || !form.contactName.trim() || !form.phone.trim()) {
+    setMessage("Внесете име на екипа, контакт лице и телефон.");
+    return;
+  }
+
+  try {
+    setSubmitting(true);
+    setMessage("");
+
+    await fetch(GOOGLE_SCRIPT_URL, {
+      method: "POST",
+      mode: "no-cors",
+      headers: {
+        "Content-Type": "text/plain;charset=utf-8",
+      },
+      body: JSON.stringify({ action: "registerTeam", ...form }),
+    });
+
+    setForm({
+      category: "senior",
+      name: "",
+      contactName: "",
+      phone: "",
+      logo: "",
+    });
+
+    setMessage("Пријавата е испратена. Екипата нема да се прикаже јавно додека не биде одобрена во Google Sheets.");
+  } catch (error) {
+    console.log(error);
+    setMessage("Не може да се испрати пријавата. Обидете се повторно.");
+  } finally {
+    setSubmitting(false);
+  }
+};
+
+  return (
+    <PageSection title="Пријава на екипа" subtitle="Испратените екипи прво одат на одобрување, па потоа се прикажуваат јавно.">
+      <form onSubmit={submitTeam} className="mx-auto max-w-3xl rounded-[2rem] border border-white/20 bg-white/10 p-6 shadow-2xl backdrop-blur">
+        <div className="grid gap-4 md:grid-cols-2">
+          <label className="grid gap-2 font-bold">
+            Категорија
+            <select value={form.category} onChange={event => updateField("category", event.target.value)} className="rounded-2xl bg-white/90 px-4 py-3 text-green-950 outline-none">
+              <option value="senior">Сениори</option>
+              <option value="junior">Јуниори</option>
+            </select>
+          </label>
+
+          <label className="grid gap-2 font-bold">
+            Име на екипа
+            <input value={form.name} onChange={event => updateField("name", event.target.value)} className="rounded-2xl bg-white/90 px-4 py-3 text-green-950 outline-none" placeholder="Пр. ФК Струмица" />
+          </label>
+
+          <label className="grid gap-2 font-bold">
+            Контакт лице
+            <input value={form.contactName} onChange={event => updateField("contactName", event.target.value)} className="rounded-2xl bg-white/90 px-4 py-3 text-green-950 outline-none" placeholder="Име и презиме" />
+          </label>
+
+          <label className="grid gap-2 font-bold">
+            Телефон
+            <input value={form.phone} onChange={event => updateField("phone", event.target.value)} className="rounded-2xl bg-white/90 px-4 py-3 text-green-950 outline-none" placeholder="07X XXX XXX" />
+          </label>
+
+          <label className="grid gap-2 font-bold md:col-span-2">
+            Лого URL — optional
+            <input value={form.logo} onChange={event => updateField("logo", event.target.value)} className="rounded-2xl bg-white/90 px-4 py-3 text-green-950 outline-none" placeholder="https://..." />
+          </label>
+        </div>
+
+        <button disabled={submitting} className="mt-6 rounded-2xl bg-yellow-300 px-6 py-3 font-black text-green-950 shadow-lg transition hover:scale-105 disabled:cursor-not-allowed disabled:opacity-60">
+          {submitting ? "Се испраќа..." : "Испрати пријава"}
+        </button>
+
+        {message && <p className="mt-4 rounded-2xl bg-white/10 p-4 font-bold text-green-50">{message}</p>}
+      </form>
+    </PageSection>
+  );
+}
+
 function TeamsSection({ seniorTeams, juniorTeams }) {
   return (
-    <PageSection title="Екипи" subtitle="Оваа листа се чита од Google Sheets.">
+    <PageSection title="Екипи" subtitle="">
+      <div className="mb-6 grid gap-4 md:grid-cols-2">
+        <StatsCard title="Сениорски екипи" value={seniorTeams.length} />
+        <StatsCard title="Јуниорски екипи" value={juniorTeams.length} />
+      </div>
+
       <div className="grid gap-6 md:grid-cols-2">
         <TeamList title="Сениорски екипи" teams={seniorTeams} emptyText="Сè уште нема внесени сениорски екипи." />
         <TeamList title="Јуниорски екипи" teams={juniorTeams} emptyText="Сè уште нема внесени јуниорски екипи." />
@@ -265,35 +383,70 @@ function TeamsSection({ seniorTeams, juniorTeams }) {
   );
 }
 
+function StatsCard({ title, value }) {
+  return (
+    <div className="rounded-[2rem] border border-white/15 bg-white/10 p-6 shadow-xl backdrop-blur">
+      <p className="text-sm font-black uppercase tracking-widest text-yellow-200">{title}</p>
+      <p className="mt-2 text-5xl font-black text-white">{value}</p>
+    </div>
+  );
+}
+
 function ScheduleSection({ matches }) {
   return (
-    <PageSection title="Распоред на натпревари" subtitle="Датуми, саати и резултати се читаат од Google Sheets.">
+    <PageSection title="Распоред на натпревари" subtitle="">
       {!matches.length ? (
         <EmptyState text="Сè уште нема внесен распоред на натпревари." />
       ) : (
-      <div className="grid gap-4">
-        {matches.map((match, index) => (
-          <div key={match.id || index} className="rounded-[1.5rem] border border-white/15 bg-white/10 p-5 shadow-lg backdrop-blur">
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-              <div className="inline-flex items-center gap-2 rounded-full bg-yellow-300 px-3 py-1 text-sm font-black text-green-950">
-                <Swords size={16} /> Меч {match.id || index + 1}
+        <div className="grid gap-6">
+          {matches.map((match, index) => {
+            const scoreA = normalizeCell(match.scoreA);
+            const scoreB = normalizeCell(match.scoreB);
+            const hasResult = scoreA !== "" && scoreB !== "";
+
+            return (
+              <div key={match.id || index} className="rounded-[2rem] border border-white/15 bg-white/10 p-6 shadow-2xl backdrop-blur">
+                <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+                  <div className="inline-flex items-center gap-2 rounded-full bg-yellow-300 px-4 py-2 text-sm font-black text-green-950">
+                    <Swords size={16} /> Меч {match.id || index + 1}
+                  </div>
+                  <p className="text-sm font-black text-yellow-200">
+                    {normalizeCell(match.round) || "Рунда"} • {normalizeCell(match.category) || "Категорија"}
+                  </p>
+                </div>
+
+                <div className="grid items-center gap-5 md:grid-cols-[1fr_260px_1fr]">
+                  <MatchTeam name={match.teamA} logo={match.logoA} />
+
+                  <div className="rounded-[1.5rem] bg-green-950/60 p-6 text-center shadow-xl">
+                    <p className="text-sm font-black uppercase tracking-widest text-green-100">Резултат</p>
+                    <p className="mt-2 text-6xl font-black text-white md:text-7xl">
+                      {hasResult ? (
+                        <>
+                          {scoreA}<span className="px-3 text-yellow-300">:</span>{scoreB}
+                        </>
+                      ) : (
+                        <span className="text-4xl text-yellow-300">VS</span>
+                      )}
+                    </p>
+                  </div>
+
+                  <MatchTeam name={match.teamB} logo={match.logoB} alignRight />
+                </div>
+
+                <div className="mt-6 border-t border-white/15 pt-5">
+                  <div className="flex flex-wrap justify-center gap-3 text-sm font-bold text-green-50 md:text-base">
+                    <span className="rounded-full bg-white/10 px-4 py-2">📅 {formatDateCell(match.date)}</span>
+                    <span className="rounded-full bg-white/10 px-4 py-2">🕘 {formatTimeCell(match.time)}</span>
+                    {normalizeCell(match.location) && (
+                      <span className="rounded-full bg-white/10 px-4 py-2">📍 {match.location}</span>
+                    )}
+                  </div>
+                </div>
               </div>
-              <p className="text-sm font-bold text-yellow-200">{match.round} • {match.category}</p>
-            </div>
-
-            <div className="grid items-center gap-4 md:grid-cols-[1fr_auto_1fr]">
-              <MatchTeam name={match.teamA} score={match.scoreA} />
-              <div className="text-center text-xl font-black text-yellow-300">VS</div>
-              <MatchTeam name={match.teamB} score={match.scoreB} alignRight />
-            </div>
-
-            <div className="mt-4 flex flex-wrap gap-3 text-sm font-bold text-green-50">
-              <span className="rounded-full bg-white/10 px-3 py-1">{match.date}</span>
-              <span className="rounded-full bg-white/10 px-3 py-1">{match.time}</span>
-            </div>
-          </div>
-        ))}
-      </div>
+            );
+          })}
+        </div>
       )}
     </PageSection>
   );
@@ -314,7 +467,7 @@ function BracketSection({ bracket }) {
   }, []);
 
   return (
-    <PageSection title="Турнирско дрво" subtitle="Турнирското дрво се чита од Google Sheets. Може да внесеш колку сакаш рунди и натпревари.">
+    <PageSection title="Турнирско дрво" subtitle="">
       {!bracket.length ? (
         <EmptyState text="Сè уште нема внесено турнирско дрво." />
       ) : (
@@ -322,24 +475,48 @@ function BracketSection({ bracket }) {
           <div
             className="grid gap-6"
             style={{
-              minWidth: `${Math.max(groupedRounds.length, 1) * 300}px`,
-              gridTemplateColumns: `repeat(${groupedRounds.length}, minmax(280px, 1fr))`,
+              minWidth: `${Math.max(groupedRounds.length, 1) * 330}px`,
+              gridTemplateColumns: `repeat(${groupedRounds.length}, minmax(310px, 1fr))`,
             }}
           >
-            {groupedRounds.map(round => (
+            {groupedRounds.map((round, roundIndex) => (
               <div key={round.title} className="rounded-[2rem] border border-white/20 bg-white/10 p-5 shadow-xl backdrop-blur">
-                <h2 className="mb-5 text-xl font-black text-yellow-300">{round.title}</h2>
-                <div className="grid gap-6">
-                  {round.games.map((game, index) => (
-                    <div key={`${round.title}-${game.game || index}`} className="rounded-2xl bg-white/10 p-4">
-                      <p className="mb-3 text-xs font-bold uppercase text-green-100">Натпревар {game.game || index + 1}</p>
-                      <div className="space-y-2">
-                        <div className="rounded-xl bg-white/10 px-4 py-3 font-bold">{game.teamA}</div>
-                        <div className="text-center text-sm font-black text-yellow-300">против</div>
-                        <div className="rounded-xl bg-white/10 px-4 py-3 font-bold">{game.teamB}</div>
+                <div className="mb-5 flex items-center justify-between gap-3">
+                  <h2 className="text-xl font-black text-yellow-300">{round.title}</h2>
+                  <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-black text-green-50">
+                    {round.games.length} натпревари
+                  </span>
+                </div>
+
+                <div className="grid gap-5">
+                  {round.games.map((game, index) => {
+                    const scoreA = normalizeCell(game.scoreA);
+                    const scoreB = normalizeCell(game.scoreB);
+                    const hasResult = scoreA !== "" && scoreB !== "";
+
+                    return (
+                      <div key={`${round.title}-${game.game || index}`} className="relative rounded-[1.5rem] border border-white/10 bg-green-950/35 p-4 shadow-lg">
+                        {roundIndex < groupedRounds.length - 1 && (
+                          <div className="absolute -right-6 top-1/2 hidden h-px w-6 bg-yellow-300/50 md:block" />
+                        )}
+
+                        <div className="mb-3 flex items-center justify-between gap-2">
+                          <span className="rounded-full bg-yellow-300 px-3 py-1 text-xs font-black text-green-950">
+                            Меч {game.game || index + 1}
+                          </span>
+                          {hasResult && (
+                            <span className="rounded-full bg-white/10 px-3 py-1 text-sm font-black text-yellow-300">
+                              {scoreA} : {scoreB}
+                            </span>
+                          )}
+                        </div>
+
+                        <BracketTeam name={game.teamA} logo={game.logoA} score={scoreA} />
+                        <div className="my-2 text-center text-xs font-black uppercase tracking-widest text-yellow-300">против</div>
+                        <BracketTeam name={game.teamB} logo={game.logoB} score={scoreB} />
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             ))}
@@ -347,6 +524,18 @@ function BracketSection({ bracket }) {
         </div>
       )}
     </PageSection>
+  );
+}
+
+function BracketTeam({ name, logo, score }) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-2xl bg-white/10 p-3">
+      <div className="flex items-center gap-3">
+        <TeamLogo logo={normalizeCell(logo)} name={normalizeCell(name) || "Екипа"} small />
+        <p className="font-black">{normalizeCell(name) || "Екипа"}</p>
+      </div>
+      {score !== "" && <p className="text-xl font-black text-yellow-300">{score}</p>}
+    </div>
   );
 }
 
@@ -361,15 +550,24 @@ function TeamList({ title, teams, emptyText }) {
       {!teams.length ? (
         <EmptyState text={emptyText} />
       ) : (
-        <div className="grid gap-3">
-          {teams.map((team, index) => (
-            <div key={`${team}-${index}`} className="flex items-center gap-4 rounded-2xl bg-white/10 p-4 font-bold">
-              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-yellow-300 text-green-950">
-                {index + 1}
-              </span>
-              {team}
-            </div>
-          ))}
+        <div className="grid gap-4">
+          {teams.map((team, index) => {
+            const teamName = normalizeCell(team.name) || "Екипа";
+            return (
+              <div key={`${teamName}-${index}`} className="group flex items-center justify-between gap-4 rounded-[1.5rem] bg-white/10 p-4 shadow-lg transition hover:bg-white/15">
+                <div className="flex items-center gap-4">
+                  <TeamLogo logo={normalizeCell(team.logo)} name={teamName} small />
+                  <div>
+                    <p className="text-lg font-black">{teamName}</p>
+                    <p className="text-sm font-bold text-green-100">#{index + 1}</p>
+                  </div>
+                </div>
+                <span className="rounded-full bg-yellow-300 px-3 py-1 text-xs font-black text-green-950">
+                  {normalizeCell(team.category) === "senior" ? "Сениори" : "Јуниори"}
+                </span>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
@@ -384,15 +582,82 @@ function EmptyState({ text }) {
   );
 }
 
-function MatchTeam({ name, score, alignRight }) {
-  const hasScore = score !== undefined && score !== null && String(score).trim() !== "";
+function MatchTeam({ name, logo, alignRight }) {
+  const cleanName = normalizeCell(name) || "Екипа";
+  const cleanLogo = normalizeCell(logo);
 
   return (
-    <div className={`rounded-2xl bg-white/10 p-5 ${alignRight ? "text-right" : ""}`}>
-      <p className="text-lg font-black">{name}</p>
-      <p className="mt-2 text-sm font-bold text-green-100">Резултат: {hasScore ? score : "—"}</p>
+    <div className={"flex items-center gap-5 rounded-[1.5rem] bg-white/10 p-5 " + (alignRight ? "justify-end text-right" : "")}>
+      {!alignRight && <TeamLogo logo={cleanLogo} name={cleanName} />}
+      <p className="text-2xl font-black md:text-3xl">{cleanName}</p>
+      {alignRight && <TeamLogo logo={cleanLogo} name={cleanName} />}
     </div>
   );
+}
+
+function TeamLogo({ logo, name, small = false }) {
+  const sizeClass = small ? "h-12 w-12 text-xl" : "h-20 w-20 text-3xl md:h-24 md:w-24";
+  if (!logo) {
+    return (
+      <div className={"flex shrink-0 items-center justify-center rounded-2xl bg-yellow-300 font-black text-green-950 " + sizeClass}>
+        {name.charAt(0).toUpperCase()}
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={logo}
+      alt={name + " logo"}
+      className={"shrink-0 rounded-2xl bg-white/90 object-contain p-2 " + sizeClass}
+      onError={event => {
+        event.currentTarget.style.display = "none";
+      }}
+    />
+  );
+}
+
+function normalizeCell(value) {
+  if (value === undefined || value === null) return "";
+  return String(value).trim();
+}
+
+function formatDateCell(value) {
+  const cleanValue = normalizeCell(value);
+  if (!cleanValue) return "Датум не е внесен";
+
+  if (cleanValue.includes("T")) {
+    const date = new Date(cleanValue);
+    if (!Number.isNaN(date.getTime())) {
+      return new Intl.DateTimeFormat("mk-MK", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        timeZone: "Europe/Skopje",
+      }).format(date);
+    }
+  }
+
+  return cleanValue;
+}
+
+function formatTimeCell(value) {
+  const cleanValue = normalizeCell(value);
+  if (!cleanValue) return "Време не е внесено";
+
+  if (cleanValue.includes("T")) {
+    const date = new Date(cleanValue);
+    if (!Number.isNaN(date.getTime())) {
+      return new Intl.DateTimeFormat("mk-MK", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+        timeZone: "UTC",
+      }).format(date);
+    }
+  }
+
+  return cleanValue;
 }
 
 function ContactAndLocation() {
@@ -402,7 +667,7 @@ function ContactAndLocation() {
         <div className="rounded-[2rem] border border-white/20 bg-white/10 p-6 shadow-xl backdrop-blur">
           <div className="mb-4 flex items-center gap-3">
             <Phone className="text-yellow-300" />
-            <h2 className="text-2xl font-black">Контакт за пријавување</h2>
+            <h2 className="text-2xl font-black">Контакт</h2>
           </div>
 
           <div className="space-y-3">
@@ -416,15 +681,26 @@ function ContactAndLocation() {
         </div>
 
         <div className="rounded-[2rem] border border-white/20 bg-white/10 p-6 shadow-xl backdrop-blur">
-          <div className="mb-4 flex items-center gap-3">
-            <MapPin className="text-yellow-300" />
-            <h2 className="text-2xl font-black">Локација</h2>
-          </div>
-          <p className="text-green-50">Струмица</p>
-          <p className="mt-4 text-sm text-green-100">
-            По завршување на пријавувањето ќе се изврши извлекување на екипите.
-          </p>
-        </div>
+  <div className="mb-4 flex items-center gap-3">
+    <MapPin className="text-yellow-300" />
+    <h2 className="text-2xl font-black">Локација</h2>
+  </div>
+
+
+  <div className="overflow-hidden rounded-2xl border border-white/20">
+    <iframe
+      title="Локација на турнирот"
+      src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d186.9380548983449!2d22.632529259669937!3d41.43902900443827!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x14a9ff595a5bf975%3A0x5dc35af2851e2c30!2sSports%20Playground%20%22Chiflik%22!5e0!3m2!1sen!2smk!4v1779232442039!5m2!1sen!2smk"
+      width="100%"
+      height="260"
+      style={{ border: 0 }}
+      allowFullScreen=""
+      loading="lazy"
+      referrerPolicy="no-referrer-when-downgrade"
+    />
+  </div>
+
+</div>
       </div>
     </section>
   );
