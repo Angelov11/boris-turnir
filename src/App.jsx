@@ -11,6 +11,8 @@ import {
   ListChecks,
   Network,
   RefreshCcw,
+  Menu,
+  X,
 } from "lucide-react";
 
 const GOOGLE_SCRIPT_URL = import.meta.env.VITE_GOOGLE_SCRIPT_URL;
@@ -36,6 +38,7 @@ async function fetchSheetTab(tabName) {
 
 export default function TournamentPage() {
   const [activeTab, setActiveTab] = useState("home");
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [teams, setTeams] = useState(emptyTeams);
   const [matches, setMatches] = useState(emptyMatches);
   const [bracket, setBracket] = useState(emptyBracket);
@@ -108,41 +111,82 @@ export default function TournamentPage() {
     []
   );
 
+  const selectTab = tabId => {
+    setActiveTab(tabId);
+    setIsMobileMenuOpen(false);
+  };
+
   return (
-    <main className="min-h-screen bg-gradient-to-br from-green-950 via-green-800 to-lime-500 text-white">
-      <nav className="sticky top-0 z-20 border-b border-white/10 bg-green-950/80 px-4 py-3 backdrop-blur md:px-12">
-        <div className="mx-auto flex max-w-6xl items-center gap-2 overflow-x-auto">
-          {tabs.map(tab => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex shrink-0 items-center gap-2 rounded-full px-4 py-2 text-sm font-bold transition ${
-                  isActive
-                    ? "bg-yellow-300 text-green-950"
-                    : "bg-white/10 text-white hover:bg-white/20"
-                }`}
-              >
-                <Icon size={16} />
-                {tab.label}
-              </button>
-            );
-          })}
+    <main className="min-h-screen overflow-x-hidden bg-gradient-to-br from-green-950 via-green-800 to-lime-500 text-white">
+      <nav className="sticky top-0 z-30 border-b border-white/10 bg-green-950/90 px-3 py-3 backdrop-blur sm:px-4 lg:px-12">
+        <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={() => setIsMobileMenuOpen(prev => !prev)}
+            className="flex items-center gap-2 rounded-full bg-yellow-300 px-4 py-2 text-sm font-black text-green-950 shadow-lg md:hidden"
+            aria-label="Open navigation menu"
+            aria-expanded={isMobileMenuOpen}
+          >
+            {isMobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
+            Мени
+          </button>
+
+          <div className="hidden items-center gap-2 overflow-x-auto pb-1 [-webkit-overflow-scrolling:touch] md:flex">
+            {tabs.map(tab => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => selectTab(tab.id)}
+                  className={`flex shrink-0 items-center gap-2 rounded-full px-3 py-2 text-xs font-bold transition sm:px-4 sm:text-sm ${
+                    isActive
+                      ? "bg-yellow-300 text-green-950"
+                      : "bg-white/10 text-white hover:bg-white/20"
+                  }`}
+                >
+                  <Icon size={16} />
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
 
           <button
             onClick={loadSheetData}
-            className="ml-auto flex shrink-0 items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm font-bold text-white hover:bg-white/20"
+            className="ml-auto flex shrink-0 items-center gap-2 rounded-full bg-white/10 px-3 py-2 text-xs font-bold text-white hover:bg-white/20 sm:px-4 sm:text-sm"
           >
             <RefreshCcw size={16} className={loading ? "animate-spin" : ""} />
             Освежи
           </button>
         </div>
+
+        {isMobileMenuOpen && (
+          <div className="mx-auto mt-3 grid w-full max-w-6xl gap-2 rounded-[1.5rem] border border-white/10 bg-green-900/95 p-3 shadow-2xl md:hidden">
+            {tabs.map(tab => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => selectTab(tab.id)}
+                  className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-black transition ${
+                    isActive
+                      ? "bg-yellow-300 text-green-950"
+                      : "bg-white/10 text-white hover:bg-white/20"
+                  }`}
+                >
+                  <Icon size={18} />
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </nav>
 
       {(loading || error) && (
-        <div className="px-6 pt-4 md:px-12">
+        <div className="px-4 pt-4 sm:px-6 lg:px-12">
           <div className={`mx-auto max-w-6xl rounded-2xl px-4 py-3 text-sm font-bold ${error ? "bg-red-500/20 text-red-100" : "bg-white/10 text-green-50"}`}>
             {loading ? "Се вчитуваат податоци..." : error}
           </div>
@@ -151,50 +195,50 @@ export default function TournamentPage() {
 
       {activeTab === "home" && (
         <>
-          <section className="relative overflow-hidden px-6 py-10 md:px-12 md:py-16">
+          <section className="relative overflow-hidden px-4 py-10 sm:px-6 lg:px-12 lg:py-16">
             <div className="absolute -right-20 top-10 h-64 w-64 rounded-full bg-yellow-300/20 blur-3xl" />
             <div className="absolute -left-20 bottom-10 h-72 w-72 rounded-full bg-green-300/20 blur-3xl" />
 
-            <div className="mx-auto grid max-w-6xl items-center gap-10 md:grid-cols-2">
-              <div>
+            <div className="mx-auto grid w-full max-w-6xl grid-cols-1 items-center gap-8 lg:grid-cols-2 lg:gap-10">
+              <div className="min-w-0">
                 <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-yellow-300/50 bg-white/10 px-4 py-2 text-sm font-semibold text-yellow-200 backdrop-blur">
                   <Trophy size={18} /> Меморијален турнир 2026
                 </div>
 
-                <h1 className="text-4xl font-black leading-tight tracking-tight md:text-6xl">
+                <h1 className="break-words text-4xl font-black leading-tight tracking-tight sm:text-5xl lg:text-6xl">
                   Меморијален турнир во мал фудбал
                   <span className="mt-2 block text-yellow-300">„Борис Трајковски“</span>
                 </h1>
 
-                <p className="mt-5 max-w-xl text-lg text-green-50 md:text-xl">
+                <p className="mt-5 max-w-xl text-base leading-relaxed text-green-50 sm:text-lg lg:text-xl">
                   Струмица 2026 — спорт, дружба и натпреварувачки дух во чест на меморијалниот турнир.
                 </p>
 
-                <div className="mt-8 flex flex-wrap gap-3">
-                  <a
-                    href="tel:+38972545226"
-                    className="rounded-2xl bg-yellow-300 px-6 py-3 font-bold text-green-950 shadow-lg transition hover:scale-105"
+                <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                  <button
+                    onClick={() => setActiveTab("register")}
+                    className="w-full rounded-2xl bg-yellow-300 px-6 py-3 text-center font-bold text-green-950 shadow-lg transition hover:scale-105 sm:w-auto"
                   >
-                    Јави се за пријава
-                  </a>
+                    Пријави екипа
+                  </button>
                   <button
                     onClick={() => setActiveTab("schedule")}
-                    className="rounded-2xl border border-white/40 bg-white/10 px-6 py-3 font-bold backdrop-blur transition hover:bg-white/20"
+                    className="w-full rounded-2xl border border-white/40 bg-white/10 px-6 py-3 text-center font-bold backdrop-blur transition hover:bg-white/20 sm:w-auto"
                   >
                     Распоред на натпревари
                   </button>
                 </div>
               </div>
 
-              <div className="rounded-[2rem] border border-white/20 bg-white/10 p-6 shadow-2xl backdrop-blur">
-                <div className="rounded-[1.5rem] bg-gradient-to-br from-yellow-300 to-lime-300 p-6 text-green-950">
+              <div className="w-full min-w-0 rounded-[2rem] border border-white/20 bg-white/10 p-4 shadow-2xl backdrop-blur sm:p-6">
+                <div className="w-full rounded-[1.5rem] bg-gradient-to-br from-yellow-300 to-lime-300 p-5 text-green-950 sm:p-6">
                   <div className="flex items-center justify-between gap-4">
                     <div>
                       <p className="text-sm font-bold uppercase tracking-wide">Вкупен награден фонд</p>
-                      <p className="mt-2 text-5xl font-black">235.000</p>
+                      <p className="mt-2 text-4xl font-black sm:text-5xl">235.000</p>
                       <p className="font-bold">денари</p>
                     </div>
-                    <Trophy size={72} className="opacity-80" />
+                    <Trophy className="h-14 w-14 shrink-0 opacity-80 sm:h-[72px] sm:w-[72px]" />
                   </div>
                 </div>
 
@@ -208,9 +252,9 @@ export default function TournamentPage() {
             </div>
           </section>
 
-          <section className="px-6 pb-14 md:px-12">
-            <div className="mx-auto grid max-w-6xl gap-6 md:grid-cols-3">
-              <div className="rounded-[2rem] border border-white/20 bg-white/10 p-6 shadow-xl backdrop-blur md:col-span-2">
+          <section className="px-4 pb-14 sm:px-6 lg:px-12">
+            <div className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-6 lg:grid-cols-3">
+              <div className="min-w-0 rounded-[2rem] border border-white/20 bg-white/10 p-4 shadow-xl backdrop-blur sm:p-6 lg:col-span-2">
                 <div className="mb-5 flex items-center gap-3">
                   <Medal className="text-yellow-300" />
                   <h2 className="text-2xl font-black">Парични награди — сениори</h2>
@@ -218,20 +262,20 @@ export default function TournamentPage() {
 
                 <div className="grid gap-4">
                   {seniorPrizes.map((prize, index) => (
-                    <div key={prize.place} className="flex items-center justify-between rounded-2xl bg-white/10 p-5">
-                      <div className="flex items-center gap-4">
+                    <div key={prize.place} className="flex flex-col gap-3 rounded-2xl bg-white/10 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+                      <div className="flex min-w-0 items-center gap-4">
                         <div className="flex h-12 w-12 items-center justify-center rounded-full bg-yellow-300 text-xl font-black text-green-950">
                           {index + 1}
                         </div>
                         <p className="font-bold">{prize.place}</p>
                       </div>
-                      <p className="text-xl font-black text-yellow-300">{prize.amount}</p>
+                      <p className="text-lg font-black text-yellow-300 sm:text-xl">{prize.amount}</p>
                     </div>
                   ))}
                 </div>
               </div>
 
-              <div className="rounded-[2rem] border border-white/20 bg-white/10 p-6 shadow-xl backdrop-blur">
+              <div className="min-w-0 rounded-[2rem] border border-white/20 bg-white/10 p-4 shadow-xl backdrop-blur sm:p-6">
                 <div className="mb-5 flex items-center gap-3">
                   <Trophy className="text-yellow-300" />
                   <h2 className="text-2xl font-black">Општински шампион</h2>
@@ -315,7 +359,7 @@ const submitTeam = async event => {
       logo: "",
     });
 
-    setMessage("Пријавата е испратена. Екипата нема да се прикаже јавно додека не биде одобрена во Google Sheets.");
+    setMessage("Пријавата е испратена. Екипата нема да се прикаже јавно додека не биде одобрена.");
   } catch (error) {
     console.log(error);
     setMessage("Не може да се испрати пријавата. Обидете се повторно.");
@@ -326,11 +370,11 @@ const submitTeam = async event => {
 
   return (
     <PageSection title="Пријава на екипа" subtitle="Испратените екипи прво одат на одобрување, па потоа се прикажуваат јавно.">
-      <form onSubmit={submitTeam} className="mx-auto max-w-3xl rounded-[2rem] border border-white/20 bg-white/10 p-6 shadow-2xl backdrop-blur">
-        <div className="grid gap-4 md:grid-cols-2">
+      <form onSubmit={submitTeam} className="mx-auto w-full max-w-3xl rounded-[2rem] border border-white/20 bg-white/10 p-4 shadow-2xl backdrop-blur sm:p-6">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <label className="grid gap-2 font-bold">
             Категорија
-            <select value={form.category} onChange={event => updateField("category", event.target.value)} className="rounded-2xl bg-white/90 px-4 py-3 text-green-950 outline-none">
+            <select value={form.category} onChange={event => updateField("category", event.target.value)} className="w-full min-w-0 rounded-2xl bg-white/90 px-4 py-3 text-green-950 outline-none">
               <option value="senior">Сениори</option>
               <option value="junior">Јуниори</option>
             </select>
@@ -338,26 +382,26 @@ const submitTeam = async event => {
 
           <label className="grid gap-2 font-bold">
             Име на екипа
-            <input value={form.name} onChange={event => updateField("name", event.target.value)} className="rounded-2xl bg-white/90 px-4 py-3 text-green-950 outline-none" placeholder="Пр. ФК Струмица" />
+            <input value={form.name} onChange={event => updateField("name", event.target.value)} className="w-full min-w-0 rounded-2xl bg-white/90 px-4 py-3 text-green-950 outline-none" placeholder="Пр. ФК Струмица" />
           </label>
 
           <label className="grid gap-2 font-bold">
             Контакт лице
-            <input value={form.contactName} onChange={event => updateField("contactName", event.target.value)} className="rounded-2xl bg-white/90 px-4 py-3 text-green-950 outline-none" placeholder="Име и презиме" />
+            <input value={form.contactName} onChange={event => updateField("contactName", event.target.value)} className="w-full min-w-0 rounded-2xl bg-white/90 px-4 py-3 text-green-950 outline-none" placeholder="Име и презиме" />
           </label>
 
           <label className="grid gap-2 font-bold">
             Телефон
-            <input value={form.phone} onChange={event => updateField("phone", event.target.value)} className="rounded-2xl bg-white/90 px-4 py-3 text-green-950 outline-none" placeholder="07X XXX XXX" />
+            <input value={form.phone} onChange={event => updateField("phone", event.target.value)} className="w-full min-w-0 rounded-2xl bg-white/90 px-4 py-3 text-green-950 outline-none" placeholder="07X XXX XXX" />
           </label>
 
-          <label className="grid gap-2 font-bold md:col-span-2">
+          <label className="grid gap-2 font-bold sm:col-span-2">
             Лого URL — optional
-            <input value={form.logo} onChange={event => updateField("logo", event.target.value)} className="rounded-2xl bg-white/90 px-4 py-3 text-green-950 outline-none" placeholder="https://..." />
+            <input value={form.logo} onChange={event => updateField("logo", event.target.value)} className="w-full min-w-0 rounded-2xl bg-white/90 px-4 py-3 text-green-950 outline-none" placeholder="https://..." />
           </label>
         </div>
 
-        <button disabled={submitting} className="mt-6 rounded-2xl bg-yellow-300 px-6 py-3 font-black text-green-950 shadow-lg transition hover:scale-105 disabled:cursor-not-allowed disabled:opacity-60">
+        <button disabled={submitting} className="mt-6 w-full rounded-2xl bg-yellow-300 px-6 py-3 font-black text-green-950 shadow-lg transition hover:scale-105 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto">
           {submitting ? "Се испраќа..." : "Испрати пријава"}
         </button>
 
@@ -370,12 +414,12 @@ const submitTeam = async event => {
 function TeamsSection({ seniorTeams, juniorTeams }) {
   return (
     <PageSection title="Екипи" subtitle="">
-      <div className="mb-6 grid gap-4 md:grid-cols-2">
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
         <StatsCard title="Сениорски екипи" value={seniorTeams.length} />
         <StatsCard title="Јуниорски екипи" value={juniorTeams.length} />
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <TeamList title="Сениорски екипи" teams={seniorTeams} emptyText="Сè уште нема внесени сениорски екипи." />
         <TeamList title="Јуниорски екипи" teams={juniorTeams} emptyText="Сè уште нема внесени јуниорски екипи." />
       </div>
@@ -385,7 +429,7 @@ function TeamsSection({ seniorTeams, juniorTeams }) {
 
 function StatsCard({ title, value }) {
   return (
-    <div className="rounded-[2rem] border border-white/15 bg-white/10 p-6 shadow-xl backdrop-blur">
+    <div className="min-w-0 rounded-[2rem] border border-white/15 bg-white/10 p-4 shadow-xl backdrop-blur sm:p-6">
       <p className="text-sm font-black uppercase tracking-widest text-yellow-200">{title}</p>
       <p className="mt-2 text-5xl font-black text-white">{value}</p>
     </div>
@@ -405,7 +449,7 @@ function ScheduleSection({ matches }) {
             const hasResult = scoreA !== "" && scoreB !== "";
 
             return (
-              <div key={match.id || index} className="rounded-[2rem] border border-white/15 bg-white/10 p-6 shadow-2xl backdrop-blur">
+              <div key={match.id || index} className="min-w-0 rounded-[2rem] border border-white/15 bg-white/10 p-4 shadow-2xl backdrop-blur sm:p-6">
                 <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
                   <div className="inline-flex items-center gap-2 rounded-full bg-yellow-300 px-4 py-2 text-sm font-black text-green-950">
                     <Swords size={16} /> Меч {match.id || index + 1}
@@ -415,12 +459,12 @@ function ScheduleSection({ matches }) {
                   </p>
                 </div>
 
-                <div className="grid items-center gap-5 md:grid-cols-[1fr_260px_1fr]">
+                <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-[minmax(0,1fr)_220px_minmax(0,1fr)] xl:grid-cols-[minmax(0,1fr)_260px_minmax(0,1fr)]">
                   <MatchTeam name={match.teamA} logo={match.logoA} />
 
-                  <div className="rounded-[1.5rem] bg-green-950/60 p-6 text-center shadow-xl">
+                  <div className="rounded-[1.5rem] bg-green-950/60 p-4 text-center shadow-xl sm:p-6">
                     <p className="text-sm font-black uppercase tracking-widest text-green-100">Резултат</p>
-                    <p className="mt-2 text-6xl font-black text-white md:text-7xl">
+                    <p className="mt-2 text-5xl font-black text-white sm:text-6xl lg:text-7xl">
                       {hasResult ? (
                         <>
                           {scoreA}<span className="px-3 text-yellow-300">:</span>{scoreB}
@@ -435,7 +479,7 @@ function ScheduleSection({ matches }) {
                 </div>
 
                 <div className="mt-6 border-t border-white/15 pt-5">
-                  <div className="flex flex-wrap justify-center gap-3 text-sm font-bold text-green-50 md:text-base">
+                  <div className="flex flex-wrap justify-center gap-3 text-sm font-bold text-green-50 sm:text-base">
                     <span className="rounded-full bg-white/10 px-4 py-2">📅 {formatDateCell(match.date)}</span>
                     <span className="rounded-full bg-white/10 px-4 py-2">🕘 {formatTimeCell(match.time)}</span>
                     {normalizeCell(match.location) && (
@@ -471,7 +515,7 @@ function BracketSection({ bracket }) {
       {!bracket.length ? (
         <EmptyState text="Сè уште нема внесено турнирско дрво." />
       ) : (
-        <div className="overflow-x-auto pb-4">
+        <div className="w-full overflow-x-auto pb-4 [-webkit-overflow-scrolling:touch]">
           <div
             className="grid gap-6"
             style={{
@@ -482,7 +526,7 @@ function BracketSection({ bracket }) {
             {groupedRounds.map((round, roundIndex) => (
               <div key={round.title} className="rounded-[2rem] border border-white/20 bg-white/10 p-5 shadow-xl backdrop-blur">
                 <div className="mb-5 flex items-center justify-between gap-3">
-                  <h2 className="text-xl font-black text-yellow-300">{round.title}</h2>
+                  <h2 className="text-lg font-black text-yellow-300 sm:text-xl">{round.title}</h2>
                   <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-black text-green-50">
                     {round.games.length} натпревари
                   </span>
@@ -529,19 +573,19 @@ function BracketSection({ bracket }) {
 
 function BracketTeam({ name, logo, score }) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-2xl bg-white/10 p-3">
+    <div className="flex min-w-0 items-center justify-between gap-3 rounded-2xl bg-white/10 p-3">
       <div className="flex items-center gap-3">
         <TeamLogo logo={normalizeCell(logo)} name={normalizeCell(name) || "Екипа"} small />
         <p className="font-black">{normalizeCell(name) || "Екипа"}</p>
       </div>
-      {score !== "" && <p className="text-xl font-black text-yellow-300">{score}</p>}
+      {score !== "" && <p className="text-lg font-black text-yellow-300 sm:text-xl">{score}</p>}
     </div>
   );
 }
 
 function TeamList({ title, teams, emptyText }) {
   return (
-    <div className="rounded-[2rem] border border-white/20 bg-white/10 p-6 shadow-xl backdrop-blur">
+    <div className="min-w-0 rounded-[2rem] border border-white/20 bg-white/10 p-4 shadow-xl backdrop-blur sm:p-6">
       <div className="mb-5 flex items-center gap-3">
         <Users className="text-yellow-300" />
         <h2 className="text-2xl font-black">{title}</h2>
@@ -554,11 +598,11 @@ function TeamList({ title, teams, emptyText }) {
           {teams.map((team, index) => {
             const teamName = normalizeCell(team.name) || "Екипа";
             return (
-              <div key={`${teamName}-${index}`} className="group flex items-center justify-between gap-4 rounded-[1.5rem] bg-white/10 p-4 shadow-lg transition hover:bg-white/15">
-                <div className="flex items-center gap-4">
+              <div key={`${teamName}-${index}`} className="group flex min-w-0 flex-col gap-4 rounded-[1.5rem] bg-white/10 p-4 shadow-lg transition hover:bg-white/15 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex min-w-0 items-center gap-4">
                   <TeamLogo logo={normalizeCell(team.logo)} name={teamName} small />
                   <div>
-                    <p className="text-lg font-black">{teamName}</p>
+                    <p className="break-words text-lg font-black">{teamName}</p>
                     <p className="text-sm font-bold text-green-100">#{index + 1}</p>
                   </div>
                 </div>
@@ -587,16 +631,16 @@ function MatchTeam({ name, logo, alignRight }) {
   const cleanLogo = normalizeCell(logo);
 
   return (
-    <div className={"flex items-center gap-5 rounded-[1.5rem] bg-white/10 p-5 " + (alignRight ? "justify-end text-right" : "")}>
+    <div className={"flex min-w-0 flex-col items-center gap-4 rounded-[1.5rem] bg-white/10 p-4 text-center sm:flex-row sm:gap-5 sm:p-5 " + (alignRight ? "sm:justify-end sm:text-right" : "")}>
       {!alignRight && <TeamLogo logo={cleanLogo} name={cleanName} />}
-      <p className="text-2xl font-black md:text-3xl">{cleanName}</p>
+      <p className="break-words text-2xl font-black sm:text-3xl">{cleanName}</p>
       {alignRight && <TeamLogo logo={cleanLogo} name={cleanName} />}
     </div>
   );
 }
 
 function TeamLogo({ logo, name, small = false }) {
-  const sizeClass = small ? "h-12 w-12 text-xl" : "h-20 w-20 text-3xl md:h-24 md:w-24";
+  const sizeClass = small ? "h-12 w-12 text-xl" : "h-16 w-16 text-2xl sm:h-20 sm:w-20 sm:text-3xl lg:h-24 lg:w-24";
   if (!logo) {
     return (
       <div className={"flex shrink-0 items-center justify-center rounded-2xl bg-yellow-300 font-black text-green-950 " + sizeClass}>
@@ -662,9 +706,9 @@ function formatTimeCell(value) {
 
 function ContactAndLocation() {
   return (
-    <section className="px-6 pb-16 md:px-12">
-      <div className="mx-auto grid max-w-6xl gap-6 md:grid-cols-2">
-        <div className="rounded-[2rem] border border-white/20 bg-white/10 p-6 shadow-xl backdrop-blur">
+    <section className="px-4 pb-16 sm:px-6 lg:px-12">
+      <div className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className="min-w-0 rounded-[2rem] border border-white/20 bg-white/10 p-4 shadow-xl backdrop-blur sm:p-6">
           <div className="mb-4 flex items-center gap-3">
             <Phone className="text-yellow-300" />
             <h2 className="text-2xl font-black">Контакт</h2>
@@ -680,7 +724,7 @@ function ContactAndLocation() {
           </div>
         </div>
 
-        <div className="rounded-[2rem] border border-white/20 bg-white/10 p-6 shadow-xl backdrop-blur">
+        <div className="min-w-0 rounded-[2rem] border border-white/20 bg-white/10 p-4 shadow-xl backdrop-blur sm:p-6">
   <div className="mb-4 flex items-center gap-3">
     <MapPin className="text-yellow-300" />
     <h2 className="text-2xl font-black">Локација</h2>
@@ -708,10 +752,10 @@ function ContactAndLocation() {
 
 function PageSection({ title, subtitle, children }) {
   return (
-    <section className="px-6 py-10 md:px-12 md:py-14">
-      <div className="mx-auto max-w-6xl">
+    <section className="px-4 py-10 sm:px-6 lg:px-12 lg:py-14">
+      <div className="mx-auto w-full max-w-6xl">
         <div className="mb-8">
-          <h1 className="text-4xl font-black md:text-5xl">{title}</h1>
+          <h1 className="break-words text-3xl font-black sm:text-4xl lg:text-5xl">{title}</h1>
           <p className="mt-3 max-w-2xl text-green-50">{subtitle}</p>
         </div>
         {children}
@@ -725,7 +769,7 @@ function InfoCard({ icon, title, text }) {
     <div className="rounded-2xl bg-white/10 p-4 text-white">
       <div className="mb-2 text-yellow-300">{icon}</div>
       <p className="text-sm font-semibold text-green-100">{title}</p>
-      <p className="text-lg font-black">{text}</p>
+      <p className="break-words text-lg font-black">{text}</p>
     </div>
   );
 }
